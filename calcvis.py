@@ -94,6 +94,42 @@ def compute_derivative(expr: Expr):
 
 def replaceBarsWithAbs(expr: str)->str:
     return re.sub(r'\|([^|]+)\|', r'Abs(\1)', expr)
+def generateRiemannNotation(expr_str, a, b, n, method):
+    x = symbols('x')
+    dx = r"\Delta x"
+    xi = {
+        'left': r"x_i",
+        'right': r"x_{i+1}",
+        'midpoint': r"\frac{x_i+x_{i+1}}{2}"
+    }.get(method, r"x_i")
+    local_dict = {
+        "sin": sin, 
+        "cos": cos, 
+        "tan": tan, 
+        "sec": sec, 
+        "csc": csc, 
+        "cot": cot,
+        "asin": asin,
+        "acos": acos,
+        "atan": atan,
+        "sqrt": sqrt,
+        "log": log,
+        "ln": log,
+        "E": E,
+        "e": E,
+        "Abs": Abs,
+        "abs": Abs
+    }
+    transformations = standard_transformations + (implicit_multiplication_application,)
+    
+    # Fix ^ and |x|:
+    expr_str = expr_str.replace("^", "**")
+    expr_str = re.sub(r'\|([^|]+)\|', r'Abs(\1)', expr_str)
+
+    parsed_expr = parse_expr(expr_str, local_dict=local_dict, transformations=transformations)
+
+    return (rf"\sum_{{i=0}}^{{{n-1}}} f({xi}) {dx}, \quad"
+            rf"{dx} = \frac{{{latex(b)}-{latex(a)}}}{{{n}}}")
 def plot_functions(f=None, f_prime=None, a=0, b=5, show_func=True, show_deriv=True, title="graph", y_limits=None, show_rects=False, rect_data=None, dx=None, method='left'):
     
     x_vals = np.linspace(a, b, 500)
@@ -158,6 +194,7 @@ show_rects = st.checkbox("Show riemann rectangles", value=True)
 n = st.slider("Number of subintervals (n):", min_value=1, max_value=500, value=50)
 method = st.selectbox("Riemann Sum method", ["left", "right", "midpoint", "trapezoidal"])
 view = st.radio("What to visualize?", ["function only", "derivative only", "both"])
+show_riemann =st.checkbox("show riemann sum notation", value=True)
 sign = 1 if b>=a else -1
 
 if expr_input and b != a:
@@ -179,6 +216,9 @@ if expr_input and b != a:
     exact_area = compute_integral(sym_expr, a, b)
 
     st.subheader("Results")
+    if show_riemann:
+        st.subheader("Riemann Sum Area Approximation:")
+        st.latex(generateRiemannNotation(raw_input, a, b, n, method))
     st.write(f"Approximate Area ({method}): **{sign*approx_area:.5f}**")
     st.write(f"Exact Integral: **{sign*exact_area:.5f}**")
     st.write(f"Error: **{abs(exact_area - approx_area):.5f}**")
